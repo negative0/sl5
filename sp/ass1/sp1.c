@@ -4,6 +4,8 @@
 #define MOT_TABLE "mot.txt"
 #define LIT_TAB "lit.txt"
 #define SYM_TAB "sym.txt"
+#define FIRST_OP 0
+#define SECOND_OP 1
 
 /*
 	format for Intermediate Code:
@@ -69,11 +71,11 @@ DS *initNewDataStructure(const char *filename){
 	DS *ds = malloc(sizeof(DS));
 	ds->litPtr = 0;
 	ds->symPtr = 0;
-	ds->poolPtr = 1;
+	ds->poolPtr = 0;
 	ds->lc = 0;
 	ds->input = fopen(filename, "r");
 	ds->poolTab[0].no = 1;
-	ds->poolTab[0].pool = 1;
+	ds->poolTab[0].pool = 0;
 	// printf("Out initNewDataStructure\n");
 
 	return ds;
@@ -141,6 +143,17 @@ int getRegister(char *abc){
 
 }
 
+void processLiteralsInPool(DS *myDS, FILE *out){
+	int i = myDS->poolTab[myDS->poolPtr].pool;
+	LitEntry *litEntry = NULL;
+			
+	for(; i < myDS->litPtr; i++){
+		litEntry = &myDS->litTab[i];
+		litEntry->address = myDS->lc;
+		myDS->lc += 1;
+		fprintf(out, "%d\t-\t-\t%s\n",myDS->lc, litEntry->literal);
+	}
+}
 
 int main(int argc, char const *argv[])
 {	
@@ -148,14 +161,20 @@ int main(int argc, char const *argv[])
 	DS *myDS = NULL;
 	Statement *statement = NULL;
 	MotEntry *motEntry = NULL;
-	SymEntry *symEntry = NULL;
+	SymEntry *symEntry = NULL, *symEntry1 = NULL;
 	LitEntry *litEntry = NULL;
+	PoolEntry *poolEntry = NULL;
 	int regCode;
 	if(argc != 2){
 		printf("Specify filename of asm\n");
 	}
 
 	myDS = initNewDataStructure(argv[1]);
+	FILE *out = fopen("output.txt", "w");
+	if(out == NULL){
+		printf("Error opening output file\n");
+		return 0;
+	}
 	int isStarted = 0;
 	while((statement = getNextStatement(myDS)) != NULL){
 
@@ -166,12 +185,22 @@ int main(int argc, char const *argv[])
 			isStarted = 1;
 			if(strcmp(statement->op1, "-") != 0){
 				myDS->lc = atoi(statement->op1);
-
 			}
+			fprintf(out, "%d\tAD\t01\tC\t%d\n",myDS->lc, myDS->lc );
+			continue;
 		}
 
-		//Print LC
-		fprintf(out, "%d\n",myDS->lc);
+		// Condition for END
+		if(strcmp(statement->mnemonic, "END") == 0){
+			printf("\nEnd of program\n");
+			//processLiteralsInPool(myDS, out);
+			//Print LC
+			// fprintf(out, "%d\t",myDS->lc);
+			// Print class and opcode
+			fprintf(out, "%d\t%s\t%d ", myDS->lc, motEntry->class, motEntry->code);
+			dumpToFile(myDS);
+			break;
+		}
 
 		//Check for label
 		if(strcmp(statement->label, "--") != 0){
@@ -189,10 +218,15 @@ int main(int argc, char const *argv[])
 
 			}else{
 				// Entry Exists in symtab
+				symEntry->address = myDS->lc;
+				// symEntry->size = atoi(statement->op1);
 			}
 		}
 
-		fprintf(out, " %s %d", motEntry->class, motEntry->code);
+		// Check for LTORG
+		if(strcmp(statement->mnemonic, "LTORG") == 0){
+			processLiteralsInPool(myDS, out);
+		}
 
 		// Check for DECLARATION
 		if(strcmp(statement->mnemonic, "DS") == 0 || strcmp(statement->mnemonic, "DC") == 0){
@@ -224,15 +258,42 @@ int main(int argc, char const *argv[])
 				if(strcmp(statement->mnemonic, "DS") == 0){
 					// myDS->symTab[myDS->symPtr].size = atoi(statement->op1);
 					symEntry->size = atoi(statement->op1);
-					myDS->lc+=atoi(statement->op1);
+					myDS->lc += atoi(statement->op1);
 
 				}else{
 					symEntry->size = 1;
 					myDS->lc+=1;
 				}
 			}
-			printf("DL %d C %s\n", motEntry->code, statement->op1);
+			fprintf(out, "%d\tDL\t%d\tC\t%s\n",myDS->lc, motEntry->code, statement->op1);
+			continue;
 		}
+
+
+		//Print LC
+		fprintf(out, "%d\t",myDS->lc);
+		// Print class and opcode
+		fprintf(out, "%s\t%d ", motEntry->class, motEntry->code);
+
+		//Change LC wrt ORIGIN
+		if(strcmp(statement->mnemonic, "ORGIN") == 0){
+			myDS->lc = atoi(statement->op1);
+			continue;
+		}
+
+		// Handle EQU Statement
+		if(strcmp(statement->mnemonic, "EQU") == 0){
+			symEntry = getSymTabEntry(myDS, statement->label);
+			symEntry1 = getSymTabEntry(myDS, statement->op1);
+			if(symEntry != NULL && symEntry1 != NULL){
+				symEntry1->address = symEntry->address;
+			}
+			// fprintf(out, "%d\tDL\t%d\tC %s\n",myDS->lc, motEntry->code, statement->op1);
+			fprintf(out, "\n");
+			continue;
+		}
+		
+
 
 		// Check for Imperative statement
 		if(strcmp(motEntry->class,"IS") == 0){
@@ -240,6 +301,7 @@ int main(int argc, char const *argv[])
 
 			//OP1
 			switch(statement->op1[0]){
+				case '-': break;
 				case '=':
 				// op1 is literal, handle error
 					printf("\nError: Op1 is literal\n");
@@ -251,7 +313,7 @@ int main(int argc, char const *argv[])
 				regCode = getRegister(statement->op2);
 				if(regCode != -1){
 					//Valid Register
-					fprintf(out, " R %d", regCode);
+					fprintf(out, "\tR %d", regCode);
 					break;
 				}
 
@@ -275,26 +337,29 @@ int main(int argc, char const *argv[])
 					printf("Symbol Exists in SymTab\n");
 
 				}
-				fprintf(out, "S %d",symEntry->no);
+				fprintf(out, "\tS %d", symEntry->no);
 			}
 
 			//OP2
 			switch(statement->op2[0]){
+				case '-':
+				fprintf(out, "\n");
+				 break;
 				case '=':
 				// op1 is literal, add literal
 				if((litEntry = getlitTabEntry(myDS, statement->op2)) == NULL){
 					// Entry Does not exist
 					/*int no, address;
 						char literal[3];*/
-					int cur = myDS->symPtr;
+					int cur = myDS->litPtr;
 					myDS->litTab[cur].no = myDS->litPtr;
-					myDS->litTab[cur].address = myDS->lc;
+					myDS->litTab[cur].address = -1;
 					strcpy(myDS->litTab[cur].literal, statement->op2);
 					litEntry = &myDS->litTab[cur];
 					myDS->litPtr++;
 					
 				}
-				fprintf(out, " L %d\n",litEntry->no );
+				fprintf(out, "\tL %d\n", litEntry->no);
 				break;
 
 				case 'A': case 'B': case 'C': case 'D':
@@ -302,7 +367,7 @@ int main(int argc, char const *argv[])
 				regCode = getRegister(statement->op2);
 				if(regCode != -1){
 					//Valid Register
-					fprintf(out, " R %d\n", regCode);
+					fprintf(out, "\tR %d\n", regCode);
 					break;
 				}
 
@@ -326,20 +391,13 @@ int main(int argc, char const *argv[])
 					printf("Symbol Exists in SymTab\n");
 
 				}
-				fprintf(out, "S %d\n",symEntry->no);
+				fprintf(out, "\tS %d\n",symEntry->no);
 			}
 		}
 
-		// Condition for END
-		if(strcmp(statement->mnemonic, "END") == 0){
-			printf("\nEnd of program\n");
-			dumpToFile(myDS);
-			break;
-			
-		}
-
-
-
+		
 	}
+	fprintf(out, "\n");
+	fclose(out);
 	return 0;
 }
