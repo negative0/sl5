@@ -44,7 +44,7 @@ void printDistances(int d[],int p[], int k){
 		printf("%d\t|%d\t|%d\n", i, d[i], p[i]);
 	}
 	// printf("Here6");
-	printf("_____________________________\n");
+	printf("___________________________\n");
 
 }
 
