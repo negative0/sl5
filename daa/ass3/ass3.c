@@ -17,10 +17,10 @@ int getEdges(int nos, Edge **edges){
 	Edge *edg = malloc(sizeof(Edge) * nos);
 
 	int scan_v = -1;
-	int k = 0;
+	int i,j, k = 0;
 	printf("Enter the edges: put -1 if no edge\n");
-	for(int i=0;i<nos;i++){
-		for(int j = 0;j<nos;j++){
+	for(i=0;i<nos;i++){
+		for(j = 0;j<nos;j++){
 			printf("\nEnter edge for vertex [%d,%d]\t",i, j);
 			
 			scanf("%d", &scan_v);
@@ -36,17 +36,41 @@ int getEdges(int nos, Edge **edges){
 	return k;
 }
 
-void printDistances(int d[],int p[], int k){
+
+void findPath(int p[], int src, int cur, int cnst){
+	if(cur == src){
+		printf("(%d)->", src);
+		return;
+	}else{
+		// printf("\nsrc=%d,p[cur]=%d,cur=%d\n",src, p[cur], cur );
+		findPath(p,src,p[cur], cnst);
+		// printf("%d -->",temp );
+		printf("(%d)",cur );
+		if(cnst != cur){
+			printf("->");
+		}
+		// return p[cur];
+	}
+	
+	
+}
+
+void printDistances(int d[],int p[], int k, int src){
 	int i;
 	// printf("Here5");
-	printf("\nVertex\t|Dist\t|Parent\n___________________________\n");
+	printf("\nVertex\t|Dist\t|Parent\t|Path\t|\n___________________________\n");
 	for(i=0;i<k;i++){
-		printf("%d\t|%d\t|%d\n", i, d[i], p[i]);
+		printf("%d\t|%d\t|%d\t|", i, d[i], p[i]);
+		// printf("\t");
+		if(i != src)
+		findPath(p, src, i, i);
+		printf("\n");
 	}
 	// printf("Here6");
 	printf("___________________________\n");
 
 }
+
 
 void bellman_ford(Edge edges[], int src, int vertices, int n_edges){
 	int i,j, e;
@@ -68,9 +92,9 @@ void bellman_ford(Edge edges[], int src, int vertices, int n_edges){
 		update = FALSE;
 		for(e = 0;e < n_edges;e++ ){
 			Edge cur = edges[e];
-			if( (d[cur.end] == INF && d[cur.start] != INF) ||  
+			if( 
+				(d[cur.end] == INF && d[cur.start] != INF) ||  
 				(d[cur.end] != INF && d[cur.start] != INF && d[cur.end] > d[cur.start] + cur.weight)
-
 			){
 				d[cur.end] = d[cur.start] + cur.weight;
 				p[cur.end] = cur.start;
@@ -79,7 +103,7 @@ void bellman_ford(Edge edges[], int src, int vertices, int n_edges){
 			// printf("Here2");
 		}
 		printf("\nFor Vertex: %d\n",i );
-		printDistances(d, p, vertices);
+		printDistances(d, p, vertices, src);
 
 		if(update == FALSE){
 			// printf("Here3");
@@ -95,7 +119,8 @@ void bellman_ford(Edge edges[], int src, int vertices, int n_edges){
 		}
 	}
 
-	printDistances(d, p, vertices);
+	printDistances(d, p, vertices, src);
+	// findPath(p,src,3,3); 
 }
 
 int main(int argc, char const *argv[])
