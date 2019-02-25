@@ -3,6 +3,8 @@
 #include <string.h>
 
 #define MAX 100
+#define TRUE 1
+#define FALSE 0
 typedef struct $1
 {
 	int no;
@@ -23,10 +25,11 @@ typedef struct $3
 	int index;
 }UstEntry;
 
-// int readNextLine(char *readLine, FILE *fp){
-// 	return fscanf(fp, "%[^(\n| |(|{))]", readLine);
-// 	// return readLine;
-// }
+void readNextLine(char *readLine, FILE *fp){
+	// printf("Ftel %d\n",ftell(fp) );
+	fgets(readLine, 100, fp);
+	// return readLine;
+}
 
 FILE *openFile(const char *fileName){
 	FILE *fp = fopen(fileName, "r");
@@ -36,34 +39,151 @@ FILE *openFile(const char *fileName){
 	return fp;
 }
 
+int isValidCombo(char a, char b){
+	switch(a){
+		case '+':
+			if(b == '+')
+				return TRUE;
+		case '-':
+			if(b == '-')
+				return TRUE;
+		case '/':
+		case '*':
+		case '<':
+			if(b=='<')
+				return TRUE;
+
+		case '>':
+			if(b=='>')
+				return TRUE;
+		case '=':
+			if(b == '=')
+				return TRUE;
+				break;
+	
+	}
+
+	return FALSE;
+
+}
+
+int isDelimiter(char a){
+	switch (a){
+		case ' ':
+		case '=':
+		case '+':
+		case '-':
+		case '%':
+		case '/':
+		case '<':
+		case '>':
+		case '{':
+		case '}':
+		case '[':
+		case ']':
+		case '(':
+		case ')':
+		case '*':
+		case '!':
+		case '~':
+		case '|':
+		case '\'':
+		case '"':
+		case ':':
+		case ';':
+		case '\n':
+			return TRUE;
+			break;
+		default:
+			return FALSE;
+	}
+}
+
 
 
 int main(int argc, char const *argv[])
 {
 	char readLine[100];
-	FILE *fp = openFile(argv[1]);
-	char *last_token;
-	const char *delimiters = " \t{}();";
- 	// int chars = 1;
- 	int token = 1;
- 	char *dup = NULL;
- 	while(fgets(readLine, 100, fp) != NULL){
- 		// readNextLine(readLine, fp);
-		// printf("%s\n",readLine);	
-		dup = strdup(readLine);
-		last_token = strtok( readLine, delimiters );
-		char delim_used = dup[readLine - last_token];
- 		// char delim_used;
-		// printf("Dup:%s\n",du[] );
- 		do{
- 			// printf("%d:%s ",token++,last_token);
- 			printf("%d:%s ",token++,last_token);
- 			last_token = strtok(NULL, delimiters);
- 			delim_used = dup[readLine - last_token];
+	char buffer[10];
+	int buf_ptr;
+	FILE* fp;
+	int i,x;
 
- 		}while(last_token != NULL);
- 		// free(dup);
- 		printf("\n");
- 	}
+	int left=0, right=0, left2 = 0;
+
+
+	if((fp = openFile(argv[1])) != NULL){
+
+		while(!feof(fp)){
+
+			readNextLine(readLine, fp);
+			// printf("Line:%s\n",readLine );
+			int len = strlen(readLine);
+			left = 0, right = 0;
+			for(i = 0; i < strlen(readLine); i++){
+				// printf("%c\n", readLine[i]);
+
+				if(isDelimiter(readLine[i]) == TRUE){
+					// printf("d:%c\n",readLine[i] );
+					if( i != len && isDelimiter(readLine[i+1]) == TRUE){
+
+						if(isValidCombo(readLine[i], readLine[i+1])){
+							// Two character operators
+							printf("dd:%c%c\t", readLine[i], readLine[i+1]);
+							// printf("Buffer:\n");
+							buf_ptr = 0;
+							for(x=left; i< right;x++){
+								// printf("x%c", readLine[x]);
+								buffer[buf_ptr++] = readLine[x];
+							}
+							// buffer[buf_ptr] = '\0';
+
+							printf("Buffer:%s\n", buffer);
+							i++;
+							left = i+1;
+							right = left;
+						}else{
+							//  Not a double char
+							printf("d:%c\t", readLine[i]);
+							buf_ptr = 0;
+							for(x=left; i< right;x++){
+								// printf("x%c", readLine[x]);
+								buffer[buf_ptr++] = readLine[x];
+							}
+							// buffer[buf_ptr] = '\0';
+
+							printf("Buffer:%s\n", buffer);
+
+
+							left = i+1;
+							right = left;
+
+									
+						}
+					}else{
+						buf_ptr = 0;
+						for(x=left; i< right;x++){
+							// printf("x%c", readLine[x]);
+							buffer[buf_ptr++] = readLine[x];
+						}
+						buffer[buf_ptr] = '\0';
+
+						printf("Buffer:%s\n", buffer);
+						left = i+1;
+						right = left;
+					}
+				}else{
+					//Not a delimiter
+					printf("nd:%c\t",readLine[i]);
+					right++;
+				}
+			}
+
+		}
+
+	}else{
+		printf("Error in opening file\n");
+	}
+
 	return 0;
 }
